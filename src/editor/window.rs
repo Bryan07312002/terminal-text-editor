@@ -64,7 +64,6 @@ impl Window {
                     self.visible_area.y_range.1 = y1;
                 }
             }
-
             // TODO: LEFT AND RIGHT ARE NOT TESTED
             Direction::Left => {
                 let initial_space = self.visible_area.x_range.1 - self.visible_area.x_range.0;
@@ -114,21 +113,33 @@ impl Window {
         &self.size
     }
 
-    pub fn document_line_number_from_cursor(&self, pos_y: usize) -> usize {
-        self.visible_area.y_range.0 + pos_y
+    pub fn document_line_number_from_cursor(&self, pos_y: usize) -> Option<usize> {
+        if pos_y < self.position().y as usize
+            || pos_y > self.position().y + self.size().height as usize
+        {
+            return None;
+        }
+
+        Some(self.visible_area.y_range.0 + pos_y)
     }
 
     pub fn document_row(&self, line: usize) -> Option<&Row> {
         self.doc.row(line)
     }
+
+    pub fn document_rows(&self) -> usize {
+        self.doc.lines_len()
+    }
 }
 
 mod test {
-    use crate::utils::Position;
-
     #[test]
     fn should_be_visible() {
-        use crate::{document::Document, editor::window::Window, utils::Size};
+        use crate::{
+            document::Document,
+            editor::window::Window,
+            utils::{Position, Size},
+        };
 
         let w = Window::new(
             Document::from(vec!["line1", "line2", "line3", "line4"]),
@@ -146,7 +157,11 @@ mod test {
 
     #[test]
     fn should_be_visible_not_even_size() {
-        use crate::{document::Document, editor::window::Window, utils::Size};
+        use crate::{
+            document::Document,
+            editor::window::Window,
+            utils::{Position, Size},
+        };
 
         let w = Window::new(
             Document::from(vec!["line1", "line2", "line3", "line4"]),
@@ -167,7 +182,7 @@ mod test {
         use crate::{
             document::Document,
             editor::window::Window,
-            utils::{Direction, Size},
+            utils::{Direction, Position, Size},
         };
         let text_buff = vec!["line1", "line2", "line3", "line4"];
 
@@ -194,7 +209,7 @@ mod test {
         use crate::{
             document::Document,
             editor::window::Window,
-            utils::{Direction, Size},
+            utils::{Direction, Position, Size},
         };
         let text_buff = vec!["line1", "line2", "line3", "line4"];
 
@@ -221,7 +236,7 @@ mod test {
         use crate::{
             document::Document,
             editor::window::Window,
-            utils::{Direction, Size},
+            utils::{Direction, Position, Size},
         };
         let text_buff = vec!["line1", "line2", "line3", "line4"];
 
@@ -248,7 +263,7 @@ mod test {
         use crate::{
             document::Document,
             editor::window::Window,
-            utils::{Direction, Size},
+            utils::{Direction, Position, Size},
         };
         let text_buff = vec!["line1", "line2", "line3", "line4"];
 

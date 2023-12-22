@@ -1,4 +1,5 @@
 use crate::{
+    document::Document,
     editor::Window,
     terminal::Terminal,
     utils::{Position, Size},
@@ -43,6 +44,19 @@ impl<'a> WindowManager<'a> {
         }
 
         screen
+    }
+
+    pub fn new_window(&mut self, doc: Document) {
+        let window = Window::new(
+            doc,
+            Size {
+                width: 30,
+                height: 10,
+            },
+            Position { x: 0, y: 0 },
+        );
+
+        self.windows.borrow_mut().push(window);
     }
 
     pub fn is_empty(&self) -> bool {

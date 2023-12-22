@@ -1,9 +1,14 @@
 use crate::{
+    document::Document,
     editor::Window,
     terminal::Terminal,
     utils::{Position, Size},
 };
-use std::{cell::RefCell, io::Error, rc::Rc};
+use std::{
+    cell::RefCell,
+    io::{Error, Read},
+    rc::Rc,
+};
 
 use super::{Control, WindowManager};
 
@@ -71,6 +76,9 @@ impl<'a> Editor<'a> {
             self.draw_windows();
             Terminal::cursor_position(self.control.position());
 
+            Terminal::cursor_position(self.control.position());
+            println!("{:?}", self.control.position());
+
             // if has no windows render whelcome message
             if self.windows_manager.is_empty() {
                 self.draw_welcome_message();
@@ -84,7 +92,7 @@ impl<'a> Editor<'a> {
     pub fn draw_windows(&self) {
         let visible_buff = self.windows_manager.visible_area_buff();
 
-        for line in 0..visible_buff.len() {
+        for line in 0..visible_buff.len() - 1 {
             Terminal::cursor_position(&Position { x: 0, y: line });
             Terminal::clear_current_line();
             print!("{}\r", visible_buff[line]);
@@ -100,9 +108,20 @@ impl<'a> Editor<'a> {
         let padding = width.saturating_sub(len) / 2;
         let spaces = " ".repeat(padding.saturating_sub(1));
 
-        welcome_message = format!("~{spaces}{welcome_message}");
+        // Place cursor at middle of screen
+        Terminal::cursor_position(&Position {
+            x: 0,
+            y: (self.terminal.size().height / 2) as usize,
+        });
+        welcome_message = format!("{spaces}{welcome_message}");
         welcome_message.truncate(width);
 
         println!("{welcome_message}\r");
+    }
+
+    pub fn open_document(&mut self, path: &str) -> Result<(), Error> {
+        let doc = Document::open(path)?;
+        self.windows_manager.new_window(doc);
+        Ok(())
     }
 }

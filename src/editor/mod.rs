@@ -1,6 +1,7 @@
 pub mod control;
 pub mod editor;
 pub mod mode;
+pub mod test;
 pub mod window;
 pub mod window_manager;
 

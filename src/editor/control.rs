@@ -1,4 +1,4 @@
-use std::cell::{RefCell, RefMut};
+use std::cell::{Ref, RefCell, RefMut};
 use std::io::Error;
 use std::rc::Rc;
 
@@ -25,12 +25,16 @@ impl<'a> Control<'a> {
         }
     }
 
+    pub fn position(&self) -> &Position {
+        &self.cursor_position
+    }
+
     //-------------- Window utilities --------------//
     pub fn attach_window(&mut self, window_i: usize) {
         self.attached_window = Some(window_i);
     }
 
-    pub fn borrow_attached_windows(&self) -> std::cell::Ref<'_, Vec<Window>> {
+    pub fn borrow_attached_windows(&self) -> Ref<'_, Vec<Window>> {
         self.windows.borrow()
     }
 
@@ -39,24 +43,33 @@ impl<'a> Control<'a> {
     }
 
     pub fn scroll_attached_window(&self, direction: &Direction, length: usize) {
-        self.borrow_mut_windows()[self.attached_window.unwrap()].scroll(direction, length);
+        if let Some(index) = self.attached_window {
+            self.borrow_mut_windows()[index].scroll(direction, length);
+        };
     }
 
-    pub fn current_line_len(&self) -> usize {
-        let line = self.borrow_attached_windows()[self.attached_window.unwrap()]
-            .document_line_number_from_cursor(self.cursor_position.y);
+    pub fn current_line_len(&self) -> Option<usize> {
+        let window_index = match self.attached_window {
+            Some(index) => index,
+            None => return None,
+        };
 
-        self.borrow_attached_windows()[self.attached_window.unwrap()]
-            .document_row(line)
-            .expect("line doesnt exists")
-            .content
-            .len()
+        let line = match self.borrow_attached_windows()[window_index]
+            .document_line_number_from_cursor(self.cursor_position.y)
+        {
+            Some(l) => l,
+            None => return None,
+        };
+
+        Some(
+            self.borrow_attached_windows()[window_index]
+                .document_row(line)
+                .expect(&format!("line {line} doesnt exists"))
+                .content
+                .len(),
+        )
     }
     //--------------------------------------------//
-
-    pub fn position(&self) -> &Position {
-        &self.cursor_position
-    }
 
     pub fn listen_key() -> Result<Key, Error> {
         Terminal::read_key()
@@ -103,11 +116,23 @@ impl<'a> Control<'a> {
             y: self.cursor_position.y + length,
         };
 
-        let window_height = self.borrow_attached_windows()[self.attached_window.unwrap()]
-            .size()
-            .height as usize;
+        let window_index = match self.attached_window {
+            Some(index) => index,
+            None => return,
+        };
 
-        if next_pos.y > window_height {
+        let window_height = match self.borrow_attached_windows().get(window_index) {
+            Some(window) => window.size().height as usize,
+            None => return,
+        };
+
+        let rows_len = self.borrow_attached_windows()[window_index].document_rows();
+
+        if next_pos.y > rows_len {
+            return;
+        }
+
+        if (next_pos.y - 1 > window_height) & (next_pos.y < rows_len) {
             self.scroll_attached_window(&Direction::Down, length);
             self.correct_x();
             return;
@@ -142,7 +167,13 @@ impl<'a> Control<'a> {
             .size()
             .width as usize;
 
-        if self.current_line_len() < next_pos.x {
+        let current_line_len = match self.current_line_len() {
+            Some(l) => l,
+            // if none means window is wrong
+            None => panic!("document_row does not exists"),
+        };
+
+        if current_line_len < next_pos.x {
             return;
         }
 
@@ -187,7 +218,11 @@ impl<'a> Control<'a> {
     }
 
     pub fn correct_x(&mut self) {
-        let line_len = self.current_line_len();
+        let line_len = match self.current_line_len() {
+            Some(l) => l,
+            None => return,
+        };
+
         if !(line_len < self.cursor_position.x) {
             return;
         }
@@ -196,10 +231,15 @@ impl<'a> Control<'a> {
     }
 
     pub fn go_to_last_line_char(&mut self) {
-        let window_x_pos = self.borrow_attached_windows()[0].position().x;
+        let window_index = match self.attached_window {
+            Some(index) => index,
+            None => return,
+        };
+
+        let window_x_pos = self.borrow_attached_windows()[window_index].position().x;
 
         // get diffrence
-        let correction_len: isize = self.current_line_len() as isize
+        let correction_len: isize = self.current_line_len().unwrap() as isize
             - self.cursor_position.x as isize
             + window_x_pos as isize;
 
